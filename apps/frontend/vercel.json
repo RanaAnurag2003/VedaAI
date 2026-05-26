@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd ../.. && npm run build -w @vedaai/shared-types && npm run build -w @vedaai/frontend",
+  "installCommand": "cd ../.. && npm install",
+  "framework": "nextjs"
+}
