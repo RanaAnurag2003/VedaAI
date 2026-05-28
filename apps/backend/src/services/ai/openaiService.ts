@@ -10,7 +10,7 @@ import { createLogger } from '@vedaai/utils';
 
 const logger = createLogger('openai');
 
-const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+const client = new OpenAI({ apiKey: env.OPENAI_API_KEY || 'sk-dummy-key-to-prevent-startup-crash-on-render' });
 
 function isValidOpenAIKey(key?: string) {
   if (!key) return false;
