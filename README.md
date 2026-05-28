@@ -9,14 +9,14 @@
 - Node.js 20+
 - MongoDB (local or Atlas)
 - Redis (local or Redis Cloud)
-- OpenAI API key
+- Gemini API key
 
 **Quick start:**
 
-1. Copy environment variables and set your OpenAI API key:
+1. Copy environment variables and set your Gemini API key:
 ```bash
 cp .env.example .env
-# Edit .env → set OPENAI_API_KEY
+# Edit .env → set GEMINI_API_KEY
 cp apps/frontend/.env.local.example apps/frontend/.env.local
 ```
 
