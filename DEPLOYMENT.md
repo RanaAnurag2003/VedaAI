@@ -43,9 +43,9 @@ This repository includes a `netlify.toml` file in the root that pre-configures N
 1. Go to your **Netlify Dashboard** → click **Add new site** → **Import an existing project**.
 2. Connect your GitHub repository.
 3. Netlify will auto-detect the monorepo configuration:
-   - **Base directory**: `apps/frontend`
-   - **Build command**: `cd ../.. && npm install && npm run build -w @vedaai/shared-types && npm run build -w @vedaai/frontend`
-   - **Publish directory**: `.next`
+   - **Base directory**: (leave blank / repository root)
+   - **Build command**: `npm run build -w @vedaai/shared-types && npm run build -w @vedaai/frontend`
+   - **Publish directory**: `apps/frontend/.next`
 4. Add the following **Environment Variables** in the Netlify project settings:
    - `NEXT_PUBLIC_API_URL`: Your Render backend URL with `/api` suffix (e.g., `https://vedaai-backend.onrender.com/api`).
    - `NEXT_PUBLIC_WS_URL`: Your Render backend URL (e.g., `https://vedaai-backend.onrender.com`).

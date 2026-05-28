@@ -1,8 +1,8 @@
 # Netlify Configuration for VedaAI Next.js Frontend
 [build]
-  base = "apps/frontend"
-  publish = ".next"
-  command = "cd ../.. && npm install && npm run build -w @vedaai/shared-types && npm run build -w @vedaai/frontend"
+  base = ""
+  publish = "apps/frontend/.next"
+  command = "npm run build -w @vedaai/shared-types && npm run build -w @vedaai/frontend"
 
 [build.environment]
   NODE_VERSION = "20"
