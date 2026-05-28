@@ -6,6 +6,7 @@ import {
   regenerateAssignmentHandler,
   listAssignmentsHandler,
   deleteAssignmentHandler,
+  updateAssignmentPaperHandler,
 } from '../controllers/assignmentController';
 import { uploadMiddleware } from '../middleware/upload';
 
@@ -24,5 +25,7 @@ router.get('/:id/status', getAssignmentStatusHandler);
 router.post('/:id/regenerate', regenerateAssignmentHandler);
 router.get('/:id', getAssignmentHandler);
 router.delete('/:id', deleteAssignmentHandler);
+router.patch('/:id/paper', updateAssignmentPaperHandler);
+
 
 export default router;

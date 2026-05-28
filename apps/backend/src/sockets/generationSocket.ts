@@ -7,6 +7,7 @@ import {
   type GenerationProgressPayload,
   type GenerationCompletedPayload,
   type GenerationFailedPayload,
+  type GenerationChunkPayload,
 } from '@vedaai/shared-types';
 import { env } from '../config/env';
 import { createLogger } from '@vedaai/utils';
@@ -68,4 +69,9 @@ export function emitGenerationCompleted(assignmentId: string): void {
 export function emitGenerationFailed(assignmentId: string, error: string): void {
   const payload: GenerationFailedPayload = { assignmentId, error };
   emitToAssignment(assignmentId, WS_EVENTS.GENERATION_FAILED, payload);
+}
+
+export function emitGenerationChunk(assignmentId: string, chunk: string): void {
+  const payload: GenerationChunkPayload = { assignmentId, chunk };
+  emitToAssignment(assignmentId, WS_EVENTS.GENERATION_CHUNK, payload);
 }

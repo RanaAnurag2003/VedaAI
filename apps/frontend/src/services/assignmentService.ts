@@ -44,3 +44,9 @@ export async function listAssignments(): Promise<AssignmentResponse[]> {
 export async function deleteAssignment(id: string): Promise<void> {
   await api.delete(`/assignments/${id}`);
 }
+
+export async function updateAssignmentPaper(id: string, paper: any): Promise<any> {
+  const { data } = await api.patch<ApiResponse<any>>(`/assignments/${id}/paper`, { paper });
+  return data.data;
+}
+

@@ -29,6 +29,7 @@ export interface GenerationResult {
 
 export async function generateAssessmentPaper(
   assignment: IAssignment,
+  onChunk?: (text: string) => void,
 ): Promise<GenerationResult> {
   const start = Date.now();
   const sourceText = await extractTextFromFile(
@@ -48,7 +49,7 @@ export async function generateAssessmentPaper(
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(assignment, sourceText);
 
-  const first = await callAI(systemPrompt, userPrompt);
+  const first = await callAI(systemPrompt, userPrompt, onChunk);
   let raw = first.content;
 
   try {
@@ -63,6 +64,7 @@ export async function generateAssessmentPaper(
     const retry = await callAI(
       systemPrompt,
       buildFixPrompt(raw),
+      undefined, // Do not stream retry to avoid appending invalid JSON to frontend
     );
 
     raw = retry.content;
@@ -72,12 +74,16 @@ export async function generateAssessmentPaper(
   }
 }
 
-async function callGemini(system: string, user: string): Promise<{ content: string; provider: string; model: string }> {
+async function callGemini(
+  system: string,
+  user: string,
+  onChunk?: (text: string) => void,
+): Promise<{ content: string; provider: string; model: string }> {
   const geminiKey = env.GEMINI_API_KEY;
   const model = env.GEMINI_MODEL || 'gemini-1.5-flash';
   if (!geminiKey) throw new Error('Gemini API key not configured');
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${geminiKey}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -95,7 +101,49 @@ async function callGemini(system: string, user: string): Promise<{ content: stri
       },
       generationConfig: {
         responseMimeType: 'application/json',
-        temperature: 0.7,
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            title: { type: 'STRING' },
+            sections: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  title: { type: 'STRING' },
+                  instruction: { type: 'STRING' },
+                  questions: {
+                    type: 'ARRAY',
+                    items: {
+                      type: 'OBJECT',
+                      properties: {
+                        question: { type: 'STRING' },
+                        type: {
+                          type: 'STRING',
+                          enum: ['mcq', 'short_answer', 'long_answer', 'fill_blank', 'true_false'],
+                        },
+                        difficulty: {
+                          type: 'STRING',
+                          enum: ['easy', 'moderate', 'hard'],
+                        },
+                        marks: { type: 'INTEGER' },
+                        options: {
+                          type: 'ARRAY',
+                          items: { type: 'STRING' },
+                        },
+                        blanks: { type: 'INTEGER' },
+                      },
+                      required: ['question', 'type', 'difficulty', 'marks'],
+                    },
+                  },
+                },
+                required: ['title', 'instruction', 'questions'],
+              },
+            },
+          },
+          required: ['title', 'sections'],
+        },
+        temperature: 0.2,
       },
     }),
   });
@@ -106,17 +154,48 @@ async function callGemini(system: string, user: string): Promise<{ content: stri
     throw new Error(`Gemini API request failed with status ${response.status}: ${errorText}`);
   }
 
-  const data: any = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    logger.error('Empty response or invalid schema from Gemini', { data });
+  if (!response.body) {
+    throw new Error('Empty response body from Gemini API');
+  }
+
+  let fullContent = '';
+  let buffer = '';
+
+  for await (const chunk of response.body) {
+    buffer += chunk.toString();
+    
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+        try {
+          const data = JSON.parse(line.substring(6));
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            fullContent += text;
+            if (onChunk) onChunk(text);
+          }
+        } catch (e) {
+          // ignore parse errors for incomplete chunks
+        }
+      }
+    }
+  }
+
+  if (!fullContent) {
+    logger.error('Empty response from Gemini API stream');
     throw new Error('Empty response from Gemini API');
   }
 
-  return { content: text, provider: 'gemini', model };
+  return { content: fullContent, provider: 'gemini', model };
 }
 
-async function callOpenAI(system: string, user: string): Promise<{ content: string; provider: string; model: string }> {
+async function callOpenAI(
+  system: string,
+  user: string,
+  onChunk?: (text: string) => void,
+): Promise<{ content: string; provider: string; model: string }> {
   try {
     const response = await client.chat.completions.create({
       model: env.OPENAI_MODEL,
@@ -125,10 +204,19 @@ async function callOpenAI(system: string, user: string): Promise<{ content: stri
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      temperature: 0.7,
+      temperature: 0.2,
+      stream: true,
     });
 
-    const content = response.choices[0]?.message?.content;
+    let content = '';
+    for await (const chunk of response) {
+      const text = chunk.choices[0]?.delta?.content || '';
+      content += text;
+      if (onChunk && text) {
+        onChunk(text);
+      }
+    }
+
     if (!content) {
       throw new Error('Empty response from OpenAI');
     }
@@ -143,7 +231,11 @@ async function callOpenAI(system: string, user: string): Promise<{ content: stri
   }
 }
 
-async function callHuggingFace(system: string, user: string): Promise<{ content: string; provider: string; model: string }> {
+async function callHuggingFace(
+  system: string,
+  user: string,
+  onChunk?: (text: string) => void,
+): Promise<{ content: string; provider: string; model: string }> {
   const hfKey = env.HUGGINGFACE_API_KEY;
   const model = env.HUGGINGFACE_MODEL || 'gpt2';
   if (!hfKey) throw new Error('Hugging Face API key not configured');
@@ -159,7 +251,7 @@ async function callHuggingFace(system: string, user: string): Promise<{ content:
       Accept: 'application/json',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 512, temperature: 0.7 } }),
+    body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 512, temperature: 0.2 } }),
   });
 
   if (!res.ok) {
@@ -174,10 +266,19 @@ async function callHuggingFace(system: string, user: string): Promise<{ content:
   if (Array.isArray(data) && data[0]?.generated_text) content = String(data[0].generated_text);
   else if (typeof data === 'string') content = data;
   else content = JSON.stringify(data);
+  
+  if (onChunk && content) {
+    onChunk(content); // Hugging face fallback doesn't stream, just emit full chunk
+  }
+  
   return { content, provider: 'huggingface', model };
 }
 
-async function callAI(system: string, user: string): Promise<{ content: string; provider: string; model: string }> {
+async function callAI(
+  system: string,
+  user: string,
+  onChunk?: (text: string) => void,
+): Promise<{ content: string; provider: string; model: string }> {
   const hasGemini = env.GEMINI_API_KEY && env.GEMINI_API_KEY.trim() !== '' && !env.GEMINI_API_KEY.includes('your');
   const hasOpenAI = isValidOpenAIKey(env.OPENAI_API_KEY);
   const hasHuggingFace = !!env.HUGGINGFACE_API_KEY;
@@ -188,7 +289,7 @@ async function callAI(system: string, user: string): Promise<{ content: string; 
   if (hasGemini) {
     try {
       logger.info('Attempting generation using Gemini API');
-      return await callGemini(system, user);
+      return await callGemini(system, user, onChunk);
     } catch (geminiErr: any) {
       lastError = geminiErr;
       logger.error('Gemini request failed, trying fallbacks if available', { message: geminiErr?.message });
@@ -202,13 +303,13 @@ async function callAI(system: string, user: string): Promise<{ content: string; 
   // Fallback to OpenAI if key valid
   if (hasOpenAI) {
     try {
-      return await callOpenAI(system, user);
+      return await callOpenAI(system, user, onChunk);
     } catch (err: any) {
       lastError = err;
       const status = err?.status;
       if (status === 401 && hasHuggingFace) {
         logger.info('Falling back to Hugging Face for generation');
-        return await callHuggingFace(system, user);
+        return await callHuggingFace(system, user, onChunk);
       }
       if (!hasHuggingFace) throw err;
     }
@@ -217,7 +318,7 @@ async function callAI(system: string, user: string): Promise<{ content: string; 
   // Fallback to Hugging Face
   if (hasHuggingFace) {
     logger.info('Falling back to Hugging Face for generation');
-    return await callHuggingFace(system, user);
+    return await callHuggingFace(system, user, onChunk);
   }
 
   throw lastError ?? new Error('No valid AI key configured or all requests failed');

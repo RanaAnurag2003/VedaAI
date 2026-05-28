@@ -9,9 +9,10 @@ import { ExamPaperPdf } from './ExamPaperPdf';
 
 interface DownloadPdfButtonProps {
   paper: AssessmentPaper;
+  variant?: 'default' | 'white';
 }
 
-export function DownloadPdfButton({ paper }: DownloadPdfButtonProps) {
+export function DownloadPdfButton({ paper, variant = 'default' }: DownloadPdfButtonProps) {
   const [loading, setLoading] = useState(false);
 
   const handleDownload = async () => {
@@ -29,6 +30,23 @@ export function DownloadPdfButton({ paper }: DownloadPdfButtonProps) {
     }
   };
 
+  if (variant === 'white') {
+    return (
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="bg-white hover:bg-slate-100 text-[#1E1F21] font-extrabold px-6 py-3 rounded-full shadow transition-all duration-150 flex items-center gap-2 border-none h-auto text-xs uppercase tracking-wider disabled:opacity-50"
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Download className="h-4 w-4 stroke-[3]" />
+        )}
+        Download as PDF
+      </button>
+    );
+  }
+
   return (
     <Button variant="outline" onClick={handleDownload} disabled={loading}>
       {loading ? (
@@ -40,3 +58,4 @@ export function DownloadPdfButton({ paper }: DownloadPdfButtonProps) {
     </Button>
   );
 }
+

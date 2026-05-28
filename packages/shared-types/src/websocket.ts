@@ -4,6 +4,7 @@ export const WS_EVENTS = {
   JOIN_ASSIGNMENT: 'join:assignment',
   GENERATION_QUEUED: 'generation:queued',
   GENERATION_PROGRESS: 'generation:progress',
+  GENERATION_CHUNK: 'generation:chunk',
   GENERATION_COMPLETED: 'generation:completed',
   GENERATION_FAILED: 'generation:failed',
 } as const;
@@ -27,4 +28,9 @@ export interface GenerationCompletedPayload {
 export interface GenerationFailedPayload {
   assignmentId: string;
   error: string;
+}
+
+export interface GenerationChunkPayload {
+  assignmentId: string;
+  chunk: string;
 }

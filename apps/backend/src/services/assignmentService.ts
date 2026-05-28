@@ -186,3 +186,44 @@ export async function deleteAssignment(id: string): Promise<void> {
 
   await AssignmentModel.findByIdAndDelete(id);
 }
+
+export async function updateAssignmentPaper(
+  id: string,
+  paper: any,
+): Promise<any> {
+  const generated = await GeneratedAssessmentModel.findOne({ assignmentId: id });
+  if (!generated) {
+    throw new AppError(404, 'Generated paper not found');
+  }
+
+  // Calculate difficulty breakdown
+  const breakdown: Record<string, number> = {
+    easy: 0,
+    moderate: 0,
+    hard: 0,
+  };
+
+  for (const section of paper.sections || []) {
+    for (const q of section.questions || []) {
+      if (q && q.difficulty) {
+        const diff = q.difficulty.toLowerCase();
+        if (diff === 'easy') breakdown.easy++;
+        else if (diff === 'moderate' || diff === 'medium') breakdown.moderate++;
+        else if (diff === 'hard') breakdown.hard++;
+      }
+    }
+  }
+
+  generated.paper = paper;
+  generated.metadata = {
+    ...generated.metadata,
+    difficultyBreakdown: breakdown as any,
+  };
+  
+  generated.markModified('paper');
+  generated.markModified('metadata');
+  await generated.save();
+
+  return generated.paper;
+}
+

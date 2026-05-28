@@ -10,6 +10,7 @@ import {
   emitGenerationProgress,
   emitGenerationCompleted,
   emitGenerationFailed,
+  emitGenerationChunk,
 } from '../sockets/generationSocket';
 import type { GenerationStatus } from '@vedaai/shared-types';
 
@@ -37,7 +38,22 @@ export function startGenerationWorker(): Worker {
       await progress(assignmentId, 'generating', 'Generating questions with AI', 50);
       await updateAssignmentStatus(assignmentId, 'generating');
 
-      const result = await generateAssessmentPaper(assignment);
+      let chunkBuffer = '';
+      let lastEmit = Date.now();
+
+      const result = await generateAssessmentPaper(assignment, (chunk) => {
+        chunkBuffer += chunk;
+        const now = Date.now();
+        if (now - lastEmit >= 30) {
+          emitGenerationChunk(assignmentId, chunkBuffer);
+          chunkBuffer = '';
+          lastEmit = now;
+        }
+      });
+
+      if (chunkBuffer.length > 0) {
+        emitGenerationChunk(assignmentId, chunkBuffer);
+      }
 
       await GeneratedAssessmentModel.findOneAndUpdate(
         { assignmentId: assignment._id },

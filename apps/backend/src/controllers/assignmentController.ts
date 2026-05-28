@@ -5,6 +5,7 @@ import {
   regenerateAssignment,
   listAssignments,
   deleteAssignment,
+  updateAssignmentPaper,
 } from '../services/assignmentService';
 import { getAssignmentStatus } from '../services/cacheService';
 import { AppError } from '../middleware/errorHandler';
@@ -93,3 +94,18 @@ export async function deleteAssignmentHandler(
     next(err);
   }
 }
+
+export async function updateAssignmentPaperHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    const result = await updateAssignmentPaper(id, req.body.paper);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+

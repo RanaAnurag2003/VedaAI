@@ -7,6 +7,7 @@ import type {
   GenerationFailedPayload,
   GenerationProgressPayload,
   GenerationQueuedPayload,
+  GenerationChunkPayload,
 } from '@vedaai/shared-types';
 import { getSocket } from '@/lib/socket';
 import { useAssignmentStore } from '@/store/assignmentStore';
@@ -17,6 +18,7 @@ export function useSocket(assignmentId: string | null) {
   const setPaper = useAssignmentStore((s) => s.setPaper);
   const setAssignment = useAssignmentStore((s) => s.setAssignment);
   const setError = useAssignmentStore((s) => s.setError);
+  const appendChunk = useAssignmentStore((s) => s.appendChunk);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -24,7 +26,6 @@ export function useSocket(assignmentId: string | null) {
 
     const socket = getSocket();
     socket.connect();
-    socket.emit(WS_EVENTS.JOIN_ASSIGNMENT, { assignmentId });
 
     const onQueued = (payload: GenerationQueuedPayload) => {
       if (payload.assignmentId !== assignmentId) return;
@@ -54,10 +55,16 @@ export function useSocket(assignmentId: string | null) {
       setError(payload.error);
     };
 
+    const onChunk = (payload: GenerationChunkPayload) => {
+      if (payload.assignmentId !== assignmentId) return;
+      appendChunk(payload.chunk);
+    };
+
     socket.on(WS_EVENTS.GENERATION_QUEUED, onQueued);
     socket.on(WS_EVENTS.GENERATION_PROGRESS, onProgress);
     socket.on(WS_EVENTS.GENERATION_COMPLETED, onCompleted);
     socket.on(WS_EVENTS.GENERATION_FAILED, onFailed);
+    socket.on(WS_EVENTS.GENERATION_CHUNK, onChunk);
 
     const startPolling = () => {
       if (pollingRef.current) return;
@@ -78,17 +85,24 @@ export function useSocket(assignmentId: string | null) {
 
     socket.on('disconnect', startPolling);
     socket.on('connect', () => {
+      socket.emit(WS_EVENTS.JOIN_ASSIGNMENT, { assignmentId });
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
       }
     });
 
+    // Also join initially if already connected, or it will join on 'connect' event
+    if (socket.connected) {
+      socket.emit(WS_EVENTS.JOIN_ASSIGNMENT, { assignmentId });
+    }
+
     return () => {
       socket.off(WS_EVENTS.GENERATION_QUEUED, onQueued);
       socket.off(WS_EVENTS.GENERATION_PROGRESS, onProgress);
       socket.off(WS_EVENTS.GENERATION_COMPLETED, onCompleted);
       socket.off(WS_EVENTS.GENERATION_FAILED, onFailed);
+      socket.off(WS_EVENTS.GENERATION_CHUNK, onChunk);
       socket.off('disconnect', startPolling);
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
