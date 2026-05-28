@@ -1,0 +1,32 @@
+# Render Blueprint Specification for VedaAI Backend
+services:
+  - type: web
+    name: vedaai-backend
+    env: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: MAX_FILE_SIZE_MB
+        value: "10"
+      - key: UPLOAD_DIR
+        value: ./uploads

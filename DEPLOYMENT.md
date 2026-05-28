@@ -20,26 +20,36 @@
 1. Create a free database.
 2. Copy the connection URL → `REDIS_URL` (use `rediss://` if TLS required).
 
-## Backend (Railway)
+## Backend (Render)
 
-1. New project → Deploy from GitHub repo.
-2. Root directory: `apps/backend` (or deploy from monorepo with custom build).
-3. Build command:
-   ```bash
-   cd ../.. && npm install && npm run build -w @vedaai/shared-types && npm run build -w @vedaai/utils && npm run build -w @vedaai/backend
-   ```
-4. Start command: `npm run start -w @vedaai/backend`
-5. Environment variables (see `apps/backend/.env.example`).
-6. Enable WebSocket support (Railway supports it on HTTP service).
+This repository includes a `render.yaml` Blueprint file that makes backend deployment automated.
 
-## Frontend (Vercel)
+1. Go to your **Render Dashboard** → click **New +** → **Blueprint**.
+2. Connect your GitHub repository: `https://github.com/RanaAnurag2003/VedaAI.git`.
+3. Render will auto-detect the Blueprint. It will prompt you to configure the following environment variables:
+   - `MONGODB_URI`: Your MongoDB Atlas connection string.
+   - `REDIS_URL`: Your Redis Cloud or Upstash database connection URL.
+   - `GEMINI_API_KEY`: (Optional) Your Gemini API key for question generation.
+   - `OPENAI_API_KEY`: (Optional) Your OpenAI API key.
+   - `CORS_ORIGIN`: Set this to your Netlify Frontend URL (e.g., `https://your-app.netlify.app`) once the frontend is deployed.
+4. Click **Apply** to deploy the service. Render will automatically build the backend via the multi-stage `Dockerfile` with the correct repository root context.
 
-1. Import repository.
-2. Root Directory: `apps/frontend`
-3. Environment:
-   - `NEXT_PUBLIC_API_URL` = `https://your-api.railway.app/api`
-   - `NEXT_PUBLIC_WS_URL` = `https://your-api.railway.app`
-4. Deploy.
+*Note: For websockets to connect reliably, Render's default HTTP configuration will manage websocket handshakes automatically.*
+
+## Frontend (Netlify)
+
+This repository includes a `netlify.toml` file in the root that pre-configures Netlify for monorepos.
+
+1. Go to your **Netlify Dashboard** → click **Add new site** → **Import an existing project**.
+2. Connect your GitHub repository.
+3. Netlify will auto-detect the monorepo configuration:
+   - **Base directory**: `apps/frontend`
+   - **Build command**: `cd ../.. && npm install && npm run build -w @vedaai/shared-types && npm run build -w @vedaai/frontend`
+   - **Publish directory**: `.next`
+4. Add the following **Environment Variables** in the Netlify project settings:
+   - `NEXT_PUBLIC_API_URL`: Your Render backend URL with `/api` suffix (e.g., `https://vedaai-backend.onrender.com/api`).
+   - `NEXT_PUBLIC_WS_URL`: Your Render backend URL (e.g., `https://vedaai-backend.onrender.com`).
+5. Click **Deploy site**. Netlify will use its built-in Next.js Runtime to handle Server-Side Rendering (SSR).
 
 ## Post-deploy checks
 
