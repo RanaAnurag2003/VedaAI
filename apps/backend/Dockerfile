@@ -11,6 +11,7 @@ WORKDIR /app
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
 ENV NODE_ENV=production
 EXPOSE 4000
 CMD ["node", "dist/index.js"]
